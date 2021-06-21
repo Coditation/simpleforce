@@ -94,7 +94,7 @@ func (client *Client) Query(q string) (*QueryResult, error) {
 	var result QueryResult
 	err = json.Unmarshal(data, &result)
 	if err != nil {
-		return nil, err
+		return nil, ERR_FAILURE
 	}
 
 	// Reference to client is needed if the object will be further used to do online queries.
@@ -234,7 +234,7 @@ func (client *Client) httpRequest(method, url string, body io.Reader) ([]byte, i
 	}
 	rBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, http.StatusInternalServerError, err
+		return nil, http.StatusInternalServerError, ERR_FAILURE
 	}
 	return rBody, resp.StatusCode, nil
 }
@@ -352,15 +352,19 @@ func (client *Client) GetCreated_UpdatedRecords(name, startDateTime, endDateTime
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, ERR_FAILURE
 	}
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+client.sessionID)
 	// resp, err := http.Get(url)
 	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, resp.StatusCode)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
+		return nil, theError
 	}
 	defer resp.Body.Close()
 
@@ -373,22 +377,22 @@ func (client *Client) GetCreated_UpdatedRecords(name, startDateTime, endDateTime
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(logPrefix, "error while reading all body")
-		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, err.Error(), http.StatusInternalServerError)
+		return nil, ERR_FAILURE
 	}
 
 	err = json.Unmarshal(respData, &sobj)
 	if err != nil {
-		return nil, err
+		return nil, ERR_FAILURE
 	}
 
 	ids, ok := sobj["ids"]
 	if !ok {
-		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, err.Error(), http.StatusNotFound)
+		return nil, ERR_FAILURE
 	}
 
 	sobjIds, ok := ids.([]interface{})
 	if !ok {
-		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, "type cast error", http.StatusNotFound)
+		return nil, ERR_FAILURE
 	}
 
 	if len(sobjIds) > 0 {
