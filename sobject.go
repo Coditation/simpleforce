@@ -3,7 +3,6 @@ package simpleforce
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -59,9 +58,9 @@ func (obj *SObject) Describe() (*SObjectMeta, error) {
 		return nil, ERR_DATA_NOT_FOUND
 	}
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/describe")
-	data, code, err := obj.client().httpRequest(http.MethodGet, url, nil)
+	data, _, err := obj.client().httpRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return nil, err
 	}
 
 	var meta SObjectMeta
@@ -93,10 +92,10 @@ func (obj *SObject) Get(id ...string) (*SObject, error) {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
-	data, code, err := obj.client().httpRequest(http.MethodGet, url, nil)
+	data, _, err := obj.client().httpRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Println(logPrefix, "http request failed,", err)
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return nil, err
 	}
 
 	err = json.Unmarshal(data, obj)
@@ -127,10 +126,10 @@ func (obj *SObject) Create() (*SObject, error) {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/")
-	respData, code, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
+	respData, _, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return nil, err
 	}
 
 	// Use an anonymous struct to parse the result if any. This might need to be changed if the result should
@@ -174,10 +173,10 @@ func (obj *SObject) Update() (*SObject, error) {
 		queryBase = "tooling/sobjects/"
 	}
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
-	_, code, err := obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
+	_, _, err = obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return nil, err
 	}
 
 	return obj, err
@@ -200,9 +199,9 @@ func (obj *SObject) Delete(id ...string) error {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + obj.ID())
-	_, code, err := obj.client().httpRequest(http.MethodDelete, url, nil)
+	_, _, err := obj.client().httpRequest(http.MethodDelete, url, nil)
 	if err != nil {
-		return fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return err
 	}
 
 	return nil

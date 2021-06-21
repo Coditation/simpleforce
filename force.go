@@ -84,10 +84,10 @@ func (client *Client) Query(q string) (*QueryResult, error) {
 		u = fmt.Sprintf(formatString, baseURL, client.apiVersion, url.PathEscape(q))
 	}
 
-	data, code, err := client.httpRequest("GET", u, nil)
+	data, _, err := client.httpRequest("GET", u, nil)
 	if err != nil {
 		log.Println(logPrefix, "HTTP GET request failed:", u)
-		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, code)
+		return nil, err
 	}
 
 	var result QueryResult

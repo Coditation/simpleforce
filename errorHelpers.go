@@ -3,21 +3,28 @@ package simpleforce
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"log"
-
-	"github.com/pkg/errors"
 )
+
+type SfdcError struct {
+	Code    string
+	Message string
+	Extra   interface{}
+}
+
+func (se SfdcError) Error() string {
+	return se.Message
+}
 
 var (
 	// ErrFailure is a generic error if none of the other errors are appropriate.
-	ERR_FAILURE = errors.New("general failure")
+	ERR_FAILURE = SfdcError{Message: "general failure", Code: "GENERAL_FAILURE"}
 
 	// ErrAuthentication is returned when authentication failed.
-	ERR_AUTHENTICATION = errors.New("authentication failure")
+	ERR_AUTHENTICATION = SfdcError{Message: "authentication failure", Code: "AUTH_ERROR"}
 
 	//ERR_DATA_NOT_FOUND is returned when data is not found
-	ERR_DATA_NOT_FOUND = errors.New("data not found")
+	ERR_DATA_NOT_FOUND = SfdcError{Message: "data not found", Code: "NOT_FOUND"}
 )
 
 type jsonError []struct {
@@ -44,13 +51,11 @@ func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
 			return ERR_FAILURE
 		}
 		//successfully parsed XML:
-		message := fmt.Sprintf(logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v", statusCode, xmlError.Message, xmlError.ErrorCode)
-		err = errors.New(message)
+		err = SfdcError{Message: xmlError.Message, Code: xmlError.ErrorCode, Extra: map[string]interface{}{"StatusCode": statusCode}}
 		return err
 	} else {
 		//Successfully parsed json error:
-		message := fmt.Sprintf(logPrefix+" Error. http code: %v Error Message:  %v Error Code: %v", statusCode, jsonError[0].Message, jsonError[0].ErrorCode)
-		err = errors.New(message)
+		err = SfdcError{Message: jsonError[0].Message, Code: jsonError[0].ErrorCode, Extra: map[string]interface{}{"StatusCode": statusCode}}
 		return err
 	}
 }
