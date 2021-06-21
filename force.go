@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
@@ -337,4 +338,73 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 		return nil, err
 	}
 	return &meta, nil
+}
+
+//Get the list of all created and updated objects, name of the type od the object records and the list will be fetched as per between start date/time and end date/time
+func (client *Client) GetCreated_UpdatedRecords(name, startDateTime, endDateTime string) ([]*SObject, error) {
+	if !client.isLoggedIn() {
+		return nil, ERR_AUTHENTICATION
+	}
+	formatString := "sobjects/Account/updated/?start=%s&end=%s"
+	baseURL := client.makeURL(formatString)
+	url := fmt.Sprintf(baseURL, url.QueryEscape(startDateTime), url.QueryEscape(endDateTime))
+	httpClient := client.httpClient
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+client.sessionID)
+	// resp, err := http.Get(url)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf(`{"error" : %w, "code": %d}`, err, resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	var (
+		sobj  SObject
+		sobjs []*SObject
+		wg    sync.WaitGroup
+	)
+
+	respData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(logPrefix, "error while reading all body")
+		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, err.Error(), http.StatusInternalServerError)
+	}
+
+	err = json.Unmarshal(respData, &sobj)
+	if err != nil {
+		return nil, err
+	}
+
+	ids, ok := sobj["ids"]
+	if !ok {
+		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, err.Error(), http.StatusNotFound)
+	}
+
+	sobjIds, ok := ids.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf(`{"error" : %s, "code": %d}`, "type cast error", http.StatusNotFound)
+	}
+
+	if len(sobjIds) > 0 {
+		sobjs = make([]*SObject, len((sobjIds)))
+		for i, id := range sobjIds {
+			wg.Add(1)
+			go func(i int, id string, wg *sync.WaitGroup) {
+				sobj, err := client.SObject(name).Get(id)
+				if err == nil {
+					sobjs[i] = sobj
+				}
+				wg.Done()
+			}(i, id.(string), &wg)
+		}
+		wg.Wait()
+	}
+
+	return sobjs, nil
 }
