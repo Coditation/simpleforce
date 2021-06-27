@@ -341,7 +341,7 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 }
 
 //Get the list of all created and updated objects, name of the type od the object records and the list will be fetched as per between start date/time and end date/time
-func (client *Client) GetCreated_UpdatedRecords(name, startDateTime, endDateTime string) ([]*SObject, error) {
+func (client *Client) GetCreatedUpdatedRecords(name, startDateTime, endDateTime string) ([]*SObject, error) {
 	if !client.isLoggedIn() {
 		return nil, ERR_AUTHENTICATION
 	}

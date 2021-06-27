@@ -1,5 +1,2 @@
-/main/
-/.idea/modules.xml
-/.idea/simpleforce.iml
-/.idea/vcs.xml
-/.idea/workspace.xml
+.idea
+_config.yml
