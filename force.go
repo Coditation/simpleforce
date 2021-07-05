@@ -49,6 +49,19 @@ type QueryResult struct {
 	Records        []SObject `json:"records"`
 }
 
+// Token holdes the response frome response token
+type Token struct {
+	Id               string `json:"id,omitempty"`
+	IssuedAt         string `json:"issued_at,omitempty"`
+	Scope            string `json:"scope,omitempty"`
+	Error            string `json:"error,omitempty"`
+	ErrorDescription string `json:"error_description,omitempty"`
+	RefreshToken     string `json:"refresh_token,omitempty"`
+	InstanceUrl      string `json:"instance_url,omitempty"`
+	Signature        string `json:"signature,omitempty"`
+	AccessToken      string `json:"access_token,omitempty"`
+}
+
 // Expose sid to save in admin settings
 func (client *Client) GetSid() (sid string) {
 	return client.sessionID
@@ -411,4 +424,76 @@ func (client *Client) GetCreatedUpdatedRecords(name, startDateTime, endDateTime 
 	}
 
 	return sobjs, nil
+}
+
+func (client *Client) RefreshToken(clientId, clientSecret, refreshToken string) (interface{}, error) {
+	formatString := "services/oauth2/token"
+	baseURL := client.makeURL(formatString)
+	httpClient := client.httpClient
+	params := url.Values{
+		"format":        {"json"},
+		"grant_type":    {"refresh_token"},
+		"client_id":     {clientId},
+		"client_secret": {clientSecret},
+		"refresh_token": {refreshToken},
+	}
+
+	req, err := http.NewRequest("POST", baseURL, strings.NewReader(params.Encode()))
+	if err != nil {
+		return nil, ERR_FAILURE
+	}
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
+		return nil, theError
+	}
+	defer resp.Body.Close()
+	token := new(Token)
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if unmarshalErr := json.Unmarshal(data, token); unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+	return token, nil
+}
+
+func (client *Client) RevokeToken(refreshToken string) error {
+	formatString := "services/oauth2/revoke"
+	baseURL := client.makeURL(formatString)
+	httpClient := client.httpClient
+	params := url.Values{
+		"token": {refreshToken},
+	}
+
+	req, err := http.NewRequest("POST", baseURL, strings.NewReader(params.Encode()))
+	if err != nil {
+		return ERR_FAILURE
+	}
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
+		return theError
+	}
+
+	return nil
 }
