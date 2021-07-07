@@ -180,7 +180,7 @@ func (obj *SObject) Update() (*SObject, error) {
 		queryBase = "tooling/sobjects/"
 	}
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
-	_, code, err = obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
+	_, code, err := obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil, err
