@@ -92,10 +92,14 @@ func (obj *SObject) Get(id ...string) (*SObject, error) {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
-	data, _, err := obj.client().httpRequest(http.MethodGet, url, nil)
+	data, code, err := obj.client().httpRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Println(logPrefix, "http request failed,", err)
 		return nil, err
+	}
+
+	if RetryLogic(code) {
+		return nil, ERR_RETRY
 	}
 
 	err = json.Unmarshal(data, obj)
@@ -126,12 +130,15 @@ func (obj *SObject) Create() (*SObject, error) {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/")
-	respData, _, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
+	respData, code, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil, err
 	}
 
+	if RetryLogic(code) {
+		return nil, ERR_RETRY
+	}
 	// Use an anonymous struct to parse the result if any. This might need to be changed if the result should
 	// be returned to the caller in some manner, especially if the client would like to decode the errors.
 	var respVal struct {
@@ -173,10 +180,14 @@ func (obj *SObject) Update() (*SObject, error) {
 		queryBase = "tooling/sobjects/"
 	}
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
-	_, _, err = obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
+	_, code, err = obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
 		log.Println(logPrefix, "failed to process http request,", err)
 		return nil, err
+	}
+
+	if RetryLogic(code) {
+		return nil, ERR_RETRY
 	}
 
 	return obj, err

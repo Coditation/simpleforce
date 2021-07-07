@@ -3,6 +3,7 @@ package simpleforce
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"log"
 )
 
@@ -25,6 +26,12 @@ var (
 
 	//ERR_DATA_NOT_FOUND is returned when data is not found
 	ERR_DATA_NOT_FOUND = SfdcError{Message: "data not found", Code: "NOT_FOUND"}
+
+	//Error codes implements the retry logic
+	errorCodes = []int{500, 503, 403}
+
+	//ERR_RETRY to implement backoff
+	ERR_RETRY = errors.New("retry call")
 )
 
 type jsonError []struct {
@@ -58,4 +65,13 @@ func ParseSalesforceError(statusCode int, responseBody []byte) (err error) {
 		err = SfdcError{Message: jsonError[0].Message, Code: jsonError[0].ErrorCode, Extra: map[string]interface{}{"StatusCode": statusCode}}
 		return err
 	}
+}
+
+func RetryLogic(n int) bool {
+	for i := range errorCodes {
+		if errorCodes[i] == n {
+			return true
+		}
+	}
+	return false
 }

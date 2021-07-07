@@ -98,10 +98,14 @@ func (client *Client) Query(q string) (*QueryResult, error) {
 		u = fmt.Sprintf(formatString, baseURL, client.apiVersion, url.PathEscape(q))
 	}
 
-	data, _, err := client.httpRequest("GET", u, nil)
+	data, code, err := client.httpRequest("GET", u, nil)
 	if err != nil {
 		log.Println(logPrefix, "HTTP GET request failed:", u)
 		return nil, err
+	}
+
+	if RetryLogic(code) {
+		return nil, ERR_RETRY
 	}
 
 	var result QueryResult
@@ -381,6 +385,9 @@ func (client *Client) GetCreatedUpdatedRecords(name, startDateTime, endDateTime 
 	}
 	defer resp.Body.Close()
 
+	if RetryLogic(resp.StatusCode) {
+		return nil, ERR_RETRY
+	}
 	var (
 		sobj  SObject
 		sobjs []*SObject
