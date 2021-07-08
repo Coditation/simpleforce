@@ -362,9 +362,9 @@ func (client *Client) GetCreatedUpdatedRecords(name, startDateTime, endDateTime 
 	if !client.isLoggedIn() {
 		return nil, ERR_AUTHENTICATION
 	}
-	formatString := "sobjects/Account/updated/?start=%s&end=%s"
+	formatString := "sobjects/%s/updated/?start=%s&end=%s"
 	baseURL := client.makeURL(formatString)
-	url := fmt.Sprintf(baseURL, url.QueryEscape(startDateTime), url.QueryEscape(endDateTime))
+	url := fmt.Sprintf(baseURL, name, url.QueryEscape(startDateTime), url.QueryEscape(endDateTime))
 	httpClient := client.httpClient
 
 	req, err := http.NewRequest("GET", url, nil)
